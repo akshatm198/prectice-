@@ -1,0 +1,2843 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DebateSphere - AI-Powered Debate Learning</title>
+    <script src="https://unpkg.com/three@0.167.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.167.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- No import needed for Perplexity API (uses direct fetch) -->
+    <style>
+        :root {
+            --primary: #D4AF37; /* Gold */
+            --secondary: #8B4513; /* Saddle Brown */
+            --accent: #CD853F; /* Peru */
+            --dark: #0a0a0a; /* Deep Black */
+            --darker: #000000; /* Pure Black */
+            --light: #ffffff; /* Pure White */
+            --text-secondary: #e0e0e0; /* Light Gray */
+            --border: #2a2a2a; /* Dark Border */
+            --card-bg: #1a1a1a; /* Card Background */
+            --hover-bg: #2a2a2a; /* Hover Background */
+            --glow: 0 0 15px var(--primary), 0 0 30px var(--primary), 0 0 45px var(--primary);
+            --secondary-glow: 0 0 10px var(--secondary), 0 0 20px var(--secondary);
+            --shadow-3d: 0 8px 32px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            --gradient-gold: linear-gradient(135deg, #FFD700, #FFA500, #FF8C00);
+            --gradient-brown: linear-gradient(135deg, #8B4513, #A0522D, #CD853F);
+            --gradient-dark: linear-gradient(135deg, #000000, #1a1a1a, #2a2a2a);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(212, 175, 55, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(139, 69, 19, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, var(--darker) 0%, var(--dark) 50%, var(--darker) 100%);
+            color: var(--light);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(212, 175, 55, 0.03) 2px,
+                    rgba(212, 175, 55, 0.03) 4px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Login Page Styles */
+        #login-page {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #globe-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.7;
+        }
+
+        .login-form {
+            background: var(--gradient-dark);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: var(--shadow-3d), var(--glow);
+            -webkit-backdrop-filter: blur(15px);
+            backdrop-filter: blur(15px);
+            animation: pulse 3s infinite alternate;
+            transform: perspective(1000px) rotateX(5deg);
+            position: relative;
+        }
+
+        .login-form::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: var(--gradient-gold);
+            border-radius: 22px;
+            z-index: -1;
+            opacity: 0.3;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: var(--glow); }
+            100% { box-shadow: 0 0 20px var(--primary), 0 0 40px var(--primary), 0 0 60px var(--primary); }
+        }
+
+        .login-title {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 1rem;
+            color: var(--light);
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(5, 5, 16, 0.7);
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            color: var(--light);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .btn {
+            background: var(--gradient-gold);
+            color: var(--dark);
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            width: 100%;
+            margin-top: 10px;
+            box-shadow: 
+                0 4px 15px rgba(212, 175, 55, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        #start-debate-btn {
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 
+                0 8px 25px rgba(212, 175, 55, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:active {
+            transform: translateY(-1px) scale(1.02);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Dashboard Styles */
+        #dashboard {
+            display: none;
+            min-height: 100vh;
+        }
+
+        #start-debate-btn {
+            margin-top: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(0, 243, 255, 0.3);
+            margin-bottom: 30px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+
+        .avatar-container {
+            position: relative;
+            margin-right: 20px;
+        }
+
+        .avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: var(--gradient-gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--dark);
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 4px 20px rgba(212, 175, 55, 0.4);
+        }
+
+        .avatar-ring {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 3px solid var(--primary);
+            animation: avatarPulse 2s infinite;
+            z-index: 1;
+        }
+
+        @keyframes avatarPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.7; }
+        }
+
+        .avatar-ring.bronze { border-color: #CD7F32; }
+        .avatar-ring.silver { border-color: #C0C0C0; }
+        .avatar-ring.gold { border-color: #FFD700; }
+        .avatar-ring.platinum { border-color: #E5E4E2; }
+        .avatar-ring.diamond { border-color: #B9F2FF; }
+
+        .xp-progress-container {
+            margin-top: 10px;
+            width: 220px;
+        }
+
+        .xp-progress-bar {
+            position: relative;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 14px;
+            border: 2px solid var(--primary);
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .xp-progress-fill {
+            height: 100%;
+            background: var(--gradient-gold);
+            border-radius: 12px;
+            transition: width 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.6);
+        }
+
+        .xp-progress-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: var(--light);
+            text-shadow: 
+                0 1px 3px rgba(0, 0, 0, 0.9),
+                0 0 5px rgba(0, 0, 0, 0.8);
+            white-space: nowrap;
+            z-index: 10;
+            line-height: 1;
+        }
+
+        .user-details h2 {
+            font-size: 1.8rem;
+            margin-bottom: 5px;
+        }
+
+        .user-details p {
+            color: rgba(224, 248, 255, 0.7);
+        }
+
+        .logout-btn {
+            background: transparent;
+            border: 1px solid var(--secondary);
+            color: var(--light);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .logout-btn:hover {
+            background: var(--secondary);
+            box-shadow: var(--secondary-glow);
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .theme-toggle {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 12px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.2rem;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .theme-toggle:hover {
+            background: var(--primary);
+            color: var(--dark);
+            transform: scale(1.1);
+        }
+
+        /* Light Mode */
+        body.light-mode {
+            --primary: #8B4513;
+            --secondary: #654321;
+            --accent: #A0522D;
+            --dark: #ffffff;
+            --darker: #f5f5f5;
+            --light: #000000;
+            --text-secondary: #333333;
+            --border: #cccccc;
+            --card-bg: #ffffff;
+            --hover-bg: #f0f0f0;
+            background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 50%, #f5f5f5 100%);
+        }
+
+        body.light-mode::before {
+            background: repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 2px,
+                rgba(139, 69, 19, 0.05) 2px,
+                rgba(139, 69, 19, 0.05) 4px
+            );
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        /* Daily Challenge Styles */
+        .challenge-info {
+            margin-top: 15px;
+        }
+
+        .challenge-task {
+            margin-bottom: 15px;
+        }
+
+        .challenge-progress {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .challenge-bar {
+            flex: 1;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .challenge-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff80, #00cc66);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        .streak-counter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 100, 0, 0.1);
+            border-radius: 8px;
+            border: 1px solid #ff6400;
+        }
+
+        .streak-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ff6400;
+        }
+
+        .streak-label {
+            font-size: 0.9rem;
+            color: #ff6400;
+        }
+
+        .challenge-reward {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(0, 255, 128, 0.1);
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            color: #00ff80;
+        }
+
+        .card {
+            background: var(--gradient-dark);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: var(--shadow-3d);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: var(--shadow-3d), var(--glow);
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card-full-width {
+            grid-column: 1 / -1;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+        }
+
+        .card-title i {
+            margin-right: 10px;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background: rgba(5, 5, 16, 0.7);
+            border-radius: 5px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            border-radius: 5px;
+            width: 65%;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: rgba(224, 248, 255, 0.7);
+        }
+
+        .levels-container {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .level-card {
+            background: var(--gradient-dark);
+            border: 2px solid var(--accent);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 
+                0 4px 15px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .level-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(212, 175, 55, 0.1), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .level-card:hover {
+            transform: translateY(-8px) scale(1.08);
+            box-shadow: 
+                0 8px 30px rgba(212, 175, 55, 0.4),
+                0 4px 15px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .level-card:hover::before {
+            opacity: 1;
+        }
+
+        .level-card.locked {
+            opacity: 0.5;
+            cursor: not-allowed;
+            filter: grayscale(100%);
+        }
+
+        .level-status {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .level-card.unlocked .level-status {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+
+        .level-card.locked .level-status {
+            color: #ff6b6b;
+        }
+
+        .level-tooltip {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: var(--light);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+
+        .level-card.locked:hover .level-tooltip {
+            opacity: 1;
+        }
+
+        .level-tooltip::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 5px solid rgba(0, 0, 0, 0.9);
+        }
+
+        .level-card.unlocked {
+            background: var(--gradient-brown);
+            border-color: var(--primary);
+            cursor: pointer;
+            box-shadow: 
+                0 4px 15px rgba(212, 175, 55, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .level-card.unlocked:hover {
+            box-shadow: 
+                0 8px 30px rgba(212, 175, 55, 0.6),
+                0 4px 15px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+
+        .level-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .level-title {
+            font-size: 0.9rem;
+        }
+
+        /* Achievement Badges */
+        .achievements {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .badge {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid var(--primary);
+        }
+
+        .badge.earned {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .badge.locked {
+            background: rgba(50, 50, 50, 0.5);
+            border-color: #666;
+            opacity: 0.5;
+            filter: grayscale(100%);
+        }
+
+        .badge:hover.earned {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        /* Topic Selection Styles */
+        #topic-selection {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .topic-form {
+            background: rgba(10, 10, 26, 0.7);
+            border: 1px solid var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .topic-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .topic-option {
+            background: rgba(5, 5, 16, 0.7);
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .topic-option:hover {
+            background: rgba(157, 0, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .topic-option.selected {
+            background: rgba(157, 0, 255, 0.4);
+            border-color: var(--primary);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        /* Debate Interface Styles */
+        #debate-interface {
+            display: none;
+            min-height: 100vh;
+        }
+
+        .debate-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .back-btn {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--light);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .back-btn:hover {
+            background: var(--primary);
+            color: var(--dark);
+        }
+
+        .circular-timer {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timer-svg {
+            transform: rotate(-90deg);
+        }
+
+        .timer-bg {
+            fill: none;
+            stroke: rgba(212, 175, 55, 0.2);
+            stroke-width: 4;
+        }
+
+        .timer-progress {
+            fill: none;
+            stroke: var(--primary);
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 220;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear;
+            filter: drop-shadow(0 0 5px var(--primary));
+        }
+
+        .timer-text {
+            position: absolute;
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-shadow: 0 0 10px var(--primary);
+        }
+
+        .timer-warning {
+            animation: timerPulse 1s infinite;
+        }
+
+        @keyframes timerPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+            background: var(--gradient-dark);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-3d);
+            position: relative;
+        }
+
+        .chat-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-gold);
+            z-index: 1;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 80%;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.1));
+            border: 2px solid var(--primary);
+            margin-left: auto;
+            box-shadow: 0 2px 10px rgba(212, 175, 55, 0.2);
+        }
+
+        .ai-message {
+            background: linear-gradient(135deg, rgba(139, 69, 19, 0.2), rgba(139, 69, 19, 0.1));
+            border: 2px solid var(--accent);
+            box-shadow: 0 2px 10px rgba(139, 69, 19, 0.2);
+        }
+
+        .message-sender {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .message-content {
+            line-height: 1.5;
+        }
+
+        .thinking {
+            opacity: 0.7;
+            font-style: italic;
+        }
+
+        .typing-dots {
+            display: inline-block;
+        }
+
+        .typing-dots::after {
+            content: '.';
+            animation: typing 1.5s infinite;
+        }
+
+        @keyframes typing {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            background: rgba(5, 5, 16, 0.7);
+            border-top: 1px solid var(--primary);
+        }
+
+        .chat-input textarea {
+            flex: 1;
+            padding: 12px;
+            background: rgba(10, 10, 26, 0.7);
+            border: 1px solid var(--primary);
+            border-radius: 8px;
+            color: var(--light);
+            resize: none;
+            height: 60px;
+        }
+
+        .chat-input button {
+            background: var(--primary);
+            color: var(--dark);
+            border: none;
+            padding: 0 20px;
+            margin-left: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input button:hover {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+
+
+        /* Feedback Styles */
+        #feedback-section {
+            display: none;
+            margin-top: 30px;
+            background: rgba(10, 10, 26, 0.7);
+            border: 1px solid var(--primary);
+            border-radius: 15px;
+            padding: 25px;
+        }
+        #finish-debate-btn {
+            margin-top: 20px;
+        }
+
+        .feedback-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: var(--primary);
+        }
+
+        .feedback-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .strengths, .weaknesses {
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .strengths {
+            background: rgba(0, 255, 128, 0.1);
+            border: 1px solid #00ff80;
+        }
+
+        .weaknesses {
+            background: rgba(255, 0, 128, 0.1);
+            border: 1px solid #ff0080;
+        }
+
+        .feedback-list {
+            list-style-type: none;
+        }
+
+        .feedback-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .suggestions {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(157, 0, 255, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+        }
+
+        /* Tips Chat Box */
+        .tips-chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 320px;
+            background: var(--gradient-dark);
+            border: 2px solid var(--primary);
+            border-radius: 20px;
+            box-shadow: var(--shadow-3d), var(--glow);
+            z-index: 1000;
+            backdrop-filter: blur(15px);
+            display: none;
+            transform: perspective(1000px) rotateY(-5deg);
+        }
+
+        .tips-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 2px solid var(--primary);
+            background: var(--gradient-brown);
+            border-radius: 18px 18px 0 0;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .tips-header h4 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 1rem;
+        }
+
+        .tips-toggle {
+            background: none;
+            border: none;
+            color: var(--primary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tips-content {
+            max-height: 400px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .tips-content.collapsed {
+            max-height: 0;
+        }
+
+        .tips-messages {
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .tip-message {
+            background: linear-gradient(135deg, rgba(139, 69, 19, 0.2), rgba(139, 69, 19, 0.1));
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+        }
+
+        .tip-message::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--gradient-gold);
+            border-radius: 10px 10px 0 0;
+            opacity: 0.5;
+        }
+
+        /* Badge Unlock Popup */
+        .badge-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(5px);
+        }
+
+        .badge-popup-content {
+            background: var(--gradient-dark);
+            border: 3px solid var(--primary);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: var(--shadow-3d), var(--glow);
+            animation: badgePopupAppear 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .badge-popup-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: badgeBounce 1s infinite;
+        }
+
+        @keyframes badgePopupAppear {
+            0% { transform: scale(0) rotate(180deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        @keyframes badgeBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .badge:hover {
+            animation: badgeShine 0.6s ease-in-out;
+        }
+
+        @keyframes badgeShine {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(10deg) scale(1.1); }
+            100% { transform: rotate(0deg) scale(1); }
+        }
+
+        .tip-message.user {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: var(--accent);
+            margin-left: 20px;
+        }
+
+        .tips-input {
+            display: flex;
+            padding: 10px 15px 15px 15px;
+            gap: 8px;
+        }
+
+        .tips-input input {
+            flex: 1;
+            padding: 8px 12px;
+            background: rgba(5, 5, 16, 0.7);
+            border: 1px solid var(--primary);
+            border-radius: 6px;
+            color: var(--light);
+            font-size: 0.9rem;
+        }
+
+        .tips-input button {
+            background: var(--primary);
+            color: var(--dark);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        .tips-input button:hover {
+            background: var(--accent);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-controls {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .levels-container {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .feedback-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .topic-options {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .levels-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .login-form {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .user-info {
+                margin-bottom: 15px;
+            }
+            
+            .achievements {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .badge {
+                width: 40px;
+                height: 40px;
+                font-size: 1.2rem;
+            }
+            
+            .chat-container {
+                height: 60vh;
+            }
+            
+            .message {
+                max-width: 95%;
+            }
+            
+            .tips-chat-container {
+                width: 280px;
+                bottom: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="login-page">
+        <div id="globe-container"></div>
+        <div class="login-form">
+            <h1 class="login-title">DebateSphere</h1>
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" placeholder="Enter your name">
+            </div>
+            <div class="form-group">
+                <label for="grade">Grade/Level</label>
+                <select id="grade">
+                    <option value="primary">Primary School</option>
+                    <option value="high">High School</option>
+                    <option value="college">College</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" placeholder="Enter your email">
+            </div>
+            <button class="btn" id="login-btn">Enter DebateSphere</button>
+        </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div id="dashboard">
+        <div class="container">
+            <div class="header">
+                <div class="user-info">
+                    <div class="avatar-container">
+                        <div class="avatar" id="user-avatar">JD</div>
+                        <div class="avatar-ring" id="avatar-ring"></div>
+                    </div>
+                    <div class="user-details">
+                        <h2 id="user-name">John Doe</h2>
+                        <p id="user-level">Level 2 Debater • 850 XP</p>
+                        <div class="xp-progress-container">
+                            <div class="xp-progress-bar">
+                                <div class="xp-progress-fill" id="xp-progress-fill"></div>
+                                <div class="xp-progress-text" id="xp-progress-text">Level 1 → Level 2</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="header-controls">
+                    <button class="theme-toggle" id="theme-toggle" title="Toggle Theme">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <button class="logout-btn" id="logout-btn">Logout</button>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3 class="card-title">Progress Overview</h3>
+                    <p>You've completed 12 debates and improved by 35%</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value">12</div>
+                            <div class="stat-label">Debates</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">65%</div>
+                            <div class="stat-label">Win Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value">4.2</div>
+                            <div class="stat-label">Avg. Score</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">🔥 Daily Challenge</h3>
+                    <div class="challenge-info">
+                        <div class="challenge-task">
+                            <p><strong>Today's Challenge:</strong></p>
+                            <p>Win 2 debates with evidence-based arguments</p>
+                            <div class="challenge-progress">
+                                <div class="challenge-bar">
+                                    <div class="challenge-fill" style="width: 50%"></div>
+                                </div>
+                                <span>1/2 completed</span>
+                            </div>
+                        </div>
+                        <div class="streak-counter">
+                            <div class="streak-number">7</div>
+                            <div class="streak-label">Day Streak 🔥</div>
+                        </div>
+                    </div>
+                    <div class="challenge-reward">Reward: +50 XP Bonus</div>
+                </div>
+
+                <div class="card">
+                    <h3 class="card-title">Achievements</h3>
+                    <p>You've earned 5 out of 15 possible badges</p>
+                    <div class="achievements" id="achievements-container">
+                        <div class="badge earned" title="First Debate">🎯</div>
+                        <div class="badge earned" title="Strong Argument">💪</div>
+                        <div class="badge earned" title="Quick Thinker">⚡</div>
+                        <div class="badge earned" title="Evidence Master">📊</div>
+                        <div class="badge earned" title="Debate Streak">🔥</div>
+                        <div class="badge locked" title="Master Debater">👑</div>
+                        <div class="badge locked" title="Logic Expert">🧠</div>
+                        <div class="badge locked" title="Persuasion Pro">🎭</div>
+                    </div>
+                </div>
+
+                <div class="card card-full-width">
+                    <h3 class="card-title">Debate Levels</h3>
+                    <p>Progress through levels to master debating skills</p>
+                    <div class="levels-container">
+                        <div class="level-card unlocked" data-level="1">
+                            <div class="level-number">1</div>
+                            <div class="level-title">Basic Arguments</div>
+                            <div class="level-status">✓</div>
+                        </div>
+                        <div class="level-card" data-level="2">
+                            <div class="level-number">2</div>
+                            <div class="level-title">Rebuttals</div>
+                            <div class="level-status">🔒</div>
+                        </div>
+                        <div class="level-card locked" data-level="3">
+                            <div class="level-number">3</div>
+                            <div class="level-title">Logical Fallacies</div>
+                            <div class="level-status">🔒</div>
+                            <div class="level-tooltip">Complete Level 2 to unlock!</div>
+                        </div>
+                        <div class="level-card locked" data-level="4">
+                            <div class="level-number">4</div>
+                            <div class="level-title">Evidence-Based</div>
+                            <div class="level-status">🔒</div>
+                            <div class="level-tooltip">Complete Level 3 to unlock!</div>
+                        </div>
+                        <div class="level-card locked" data-level="5">
+                            <div class="level-number">5</div>
+                            <div class="level-title">Advanced Rhetoric</div>
+                            <div class="level-status">🔒</div>
+                            <div class="level-tooltip">Complete Level 4 to unlock!</div>
+                        </div>
+                    </div>
+                    <button class="btn" id="start-debate-btn">Start New Debate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Topic Selection -->
+    <div id="topic-selection">
+        <div class="container">
+            <div class="header">
+                <div class="user-info">
+                    <div class="avatar" id="topic-user-avatar">JD</div>
+                    <div class="user-details">
+                        <h2 id="topic-user-name">John Doe</h2>
+                        <p>Select a debate topic</p>
+                    </div>
+                </div>
+                <button class="back-btn" id="back-to-dashboard-from-topic">Back to Dashboard</button>
+            </div>
+
+            <div class="topic-form">
+                <h3 class="card-title">Choose Your Debate Topic</h3>
+                <p>Select a topic or enter your own custom topic</p>
+                
+                <div class="topic-options">
+                    <div class="topic-option" data-topic="Artificial Intelligence">Artificial Intelligence</div>
+                    <div class="topic-option" data-topic="Climate Change">Climate Change</div>
+                    <div class="topic-option" data-topic="School Uniforms">School Uniforms</div>
+                    <div class="topic-option" data-topic="Space Exploration">Space Exploration</div>
+                    <div class="topic-option" data-topic="Social Media">Social Media</div>
+                    <div class="topic-option" data-topic="Renewable Energy">Renewable Energy</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="custom-topic">Or enter a custom topic:</label>
+                    <textarea id="custom-topic" placeholder="Enter your debate topic here..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="debate-stance">Your stance:</label>
+                    <select id="debate-stance">
+                        <option value="for">In Favor (Pro)</option>
+                        <option value="against">Against (Con)</option>
+                        <option value="random">Random (Challenge)</option>
+                    </select>
+                </div>
+                
+                <button class="btn" id="start-debate-with-topic">Start Debate</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debate Interface -->
+    <div id="debate-interface">
+        <div class="container">
+            <div class="debate-header">
+                <button class="back-btn" id="back-to-topic">Back to Topics</button>
+                <div class="circular-timer" id="circular-timer">
+                    <svg class="timer-svg" width="80" height="80">
+                        <circle class="timer-bg" cx="40" cy="40" r="35"></circle>
+                        <circle class="timer-progress" id="timer-progress" cx="40" cy="40" r="35"></circle>
+                    </svg>
+                    <div class="timer-text" id="debate-timer">10:00</div>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will be added here dynamically -->
+                </div>
+                <div class="chat-input">
+                    <textarea id="message-input" placeholder="Type your argument here..."></textarea>
+                    <button id="send-message">Send</button>
+                </div>
+
+            <!-- Tips Chat Box -->
+            <div id="tips-chat" class="tips-chat-container">
+                <div class="tips-header">
+                    <h4>💡 Debate Tips</h4>
+                    <button id="toggle-tips" class="tips-toggle">−</button>
+                </div>
+                <div class="tips-content" id="tips-content">
+                    <div class="tips-messages" id="tips-messages">
+                        <div class="tip-message">
+                            <strong>💡 Pro Tip:</strong> Start with a clear statement of your position!
+                        </div>
+                    </div>
+                    <div class="tips-input">
+                        <input type="text" id="tips-input" placeholder="Ask for debate tips...">
+                        <button id="send-tip-question">Ask</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Badge Unlock Popup -->
+            <div id="badge-popup" class="badge-popup">
+                <div class="badge-popup-content">
+                    <div class="badge-popup-icon" id="badge-popup-icon">🏆</div>
+                    <h3>Badge Unlocked!</h3>
+                    <p id="badge-popup-text">Achievement Earned</p>
+                    <button class="btn" onclick="closeBadgePopup()">Awesome!</button>
+                </div>
+            </div>
+
+            <div id="feedback-section">
+                <h3 class="feedback-title">Debate Analysis</h3>
+                <div class="feedback-grid">
+                    <div class="strengths">
+                        <h4>Strengths</h4>
+                        <ul class="feedback-list" id="strengths-list">
+                            <!-- Strengths will be added here -->
+                        </ul>
+                    </div>
+                    <div class="weaknesses">
+                        <h4>Areas for Improvement</h4>
+                        <ul class="feedback-list" id="weaknesses-list">
+                            <!-- Weaknesses will be added here -->
+                        </ul>
+                    </div>
+                    <div class="suggestions">
+                        <h4>Suggestions</h4>
+                        <p id="suggestions-text">Your suggestions will appear here after the debate.</p>
+                    </div>
+                </div>
+                <button class="btn" id="finish-debate-btn">Finish Debate</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const loginPage = document.getElementById('login-page');
+        const dashboard = document.getElementById('dashboard');
+        const topicSelection = document.getElementById('topic-selection');
+        const debateInterface = document.getElementById('debate-interface');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const startDebateBtn = document.getElementById('start-debate-btn');
+        const backToDashboardFromTopic = document.getElementById('back-to-dashboard-from-topic');
+        const backToTopic = document.getElementById('back-to-topic');
+        const startDebateWithTopicBtn = document.getElementById('start-debate-with-topic');
+        const levelCards = document.querySelectorAll('.level-card');
+        const sendMessageBtn = document.getElementById('send-message');
+        const messageInput = document.getElementById('message-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        const debateTimer = document.getElementById('debate-timer');
+        const feedbackSection = document.getElementById('feedback-section');
+        const finishDebateBtn = document.getElementById('finish-debate-btn');
+        const userNameElement = document.getElementById('user-name');
+        const userAvatar = document.getElementById('user-avatar');
+        const topicOptions = document.querySelectorAll('.topic-option');
+        const customTopicInput = document.getElementById('custom-topic');
+        const debateStanceSelect = document.getElementById('debate-stance');
+        const strengthsList = document.getElementById('strengths-list');
+        const weaknessesList = document.getElementById('weaknesses-list');
+        const suggestionsText = document.getElementById('suggestions-text');
+        const toggleTipsBtn = document.getElementById('toggle-tips');
+        const tipsContent = document.getElementById('tips-content');
+        const tipsMessages = document.getElementById('tips-messages');
+        const tipsInput = document.getElementById('tips-input');
+        const sendTipQuestionBtn = document.getElementById('send-tip-question');
+        const themeToggle = document.getElementById('theme-toggle');
+
+        // Google Gemini API Configuration
+        const GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"; // Replace with your actual API key
+        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent";
+
+        // Initialize Gemini API
+        function initializeGemini() {
+            console.log("Google Gemini API ready");
+        }
+
+        // Application State
+        let currentUser = null;
+        let selectedTopic = "";
+        let selectedStance = "for";
+        let debateHistory = [];
+        let debateTimerInterval = null;
+        let timeRemaining = 600; // 10 minutes in seconds
+        let isThinking = false;
+        let currentLevel = 1;
+        let userExperience = 0;
+
+        // Level system configuration
+        const LEVEL_CONFIG = {
+            1: {
+                title: "Basic Arguments",
+                description: "Learn to make simple, clear arguments",
+                topics: ["School Uniforms", "Homework Benefits", "Pet Ownership"],
+                requiredExp: 0,
+                maxExp: 100,
+                aiDifficulty: "easy",
+                timeLimit: 300 // 5 minutes
+            },
+            2: {
+                title: "Rebuttals",
+                description: "Learn to counter opponent arguments",
+                topics: ["Social Media", "Video Games", "Fast Food"],
+                requiredExp: 100,
+                maxExp: 250,
+                aiDifficulty: "medium",
+                timeLimit: 450 // 7.5 minutes
+            },
+            3: {
+                title: "Logical Fallacies",
+                description: "Identify and avoid logical errors",
+                topics: ["Climate Change", "Technology in Education", "Public Transportation"],
+                requiredExp: 250,
+                maxExp: 500,
+                aiDifficulty: "medium",
+                timeLimit: 600 // 10 minutes
+            },
+            4: {
+                title: "Evidence-Based",
+                description: "Use facts and data to support arguments",
+                topics: ["Artificial Intelligence", "Renewable Energy", "Space Exploration"],
+                requiredExp: 500,
+                maxExp: 1000,
+                aiDifficulty: "hard",
+                timeLimit: 600 // 10 minutes
+            },
+            5: {
+                title: "Advanced Rhetoric",
+                description: "Master persuasive techniques and complex arguments",
+                topics: ["Economic Policy", "Healthcare Systems", "International Relations"],
+                requiredExp: 1000,
+                maxExp: 2000,
+                aiDifficulty: "expert",
+                timeLimit: 900 // 15 minutes
+            }
+        };
+
+        // Sound Effects
+        function playSound(type) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            let frequency;
+            
+            switch(type) {
+                case 'message': frequency = 800; break;
+                case 'timer': frequency = 400; break;
+                case 'achievement': frequency = 1000; break;
+                default: frequency = 600;
+            }
+            
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        // 3D Globe Animation
+        function initGlobe() {
+            const container = document.getElementById('globe-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            // Create a glowing sphere
+            const geometry = new THREE.SphereGeometry(2, 32, 32);
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x00f3ff,
+                transparent: true,
+                opacity: 0.3,
+                wireframe: true
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            scene.add(sphere);
+
+            // Add outer glow effect
+            const glowGeometry = new THREE.SphereGeometry(2.2, 32, 32);
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00f3ff,
+                transparent: true,
+                opacity: 0.1
+            });
+            const glowSphere = new THREE.Mesh(glowGeometry, glowMaterial);
+            scene.add(glowSphere);
+
+            camera.position.z = 5;
+
+            // Add OrbitControls for mouse interaction
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.enableZoom = true;
+            controls.enablePan = false; // Disable panning to keep focus on rotation
+
+            // Add stars
+            const starGeometry = new THREE.BufferGeometry();
+            const starCount = 1000;
+            const positions = new Float32Array(starCount * 3);
+
+            for (let i = 0; i < starCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 100;
+                positions[i + 1] = (Math.random() - 0.5) * 100;
+                positions[i + 2] = (Math.random() - 0.5) * 100;
+            }
+
+            starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const starMaterial = new THREE.PointsMaterial({
+                color: 0xffffff,
+                size: 0.1
+            });
+            const stars = new THREE.Points(starGeometry, starMaterial);
+            scene.add(stars);
+
+            // Animation
+            function animate() {
+                requestAnimationFrame(animate);
+
+                sphere.rotation.x += 0.001;
+                sphere.rotation.y += 0.002;
+                glowSphere.rotation.x += 0.001;
+                glowSphere.rotation.y += 0.002;
+                stars.rotation.y += 0.0005;
+
+                controls.update(); // Update controls for damping
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Initialize the 3D globe when the page loads
+        window.addEventListener('load', () => {
+            initGlobe();
+            initializeGemini();
+        });
+
+        // Google Gemini API Integration
+        async function callGeminiAPI(prompt) {
+            try {
+                const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
+                        }]
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Gemini API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                console.error('Error calling Gemini API:', error);
+                return "I apologize, but I'm having trouble responding right now. Please try again.";
+            }
+        }
+
+        // Mock responses for when API fails
+        const mockResponses = {
+            "Artificial Intelligence": [
+                "While AI offers great potential, we must consider the ethical implications and job displacement it could cause. Many experts argue that without proper regulation, AI could widen social inequalities.",
+                "AI development requires massive computational resources, leading to significant environmental impact. We should prioritize sustainable AI practices over rapid advancement.",
+                "The benefits of AI in healthcare and education are undeniable, but we need to ensure equitable access to these technologies across all socioeconomic groups."
+            ],
+            "Climate Change": [
+                "Climate change is exacerbated by industrial activities, but individual actions like reducing meat consumption and using public transport can make a meaningful difference.",
+                "While climate change is real, some argue that adaptation strategies might be more cost-effective than aggressive mitigation efforts in the short term.",
+                "The economic costs of transitioning to renewable energy are high, but the long-term benefits of preventing catastrophic climate events far outweigh these initial investments."
+            ],
+            "School Uniforms": [
+                "School uniforms promote equality by reducing peer pressure related to clothing choices, allowing students to focus more on their studies rather than fashion.",
+                "While uniforms may save money for families, they can stifle individual expression and creativity, which are important aspects of personal development.",
+                "Research shows that school uniforms can improve discipline and school pride, but they don't necessarily improve academic performance."
+            ],
+            "Space Exploration": [
+                "Space exploration drives technological innovation that benefits life on Earth, from medical advances to communication technologies.",
+                "The costs of space exploration are astronomical, and we should prioritize solving problems here on Earth before venturing into space.",
+                "Space exploration inspires the next generation of scientists and engineers, fostering curiosity and scientific literacy."
+            ],
+            "Social Media": [
+                "Social media connects people globally and amplifies important voices, but it also spreads misinformation and negatively impacts mental health.",
+                "While social media has revolutionized communication, it has contributed to decreased face-to-face interactions and shallower relationships.",
+                "Social media platforms should be regulated to protect user privacy and prevent the spread of harmful content."
+            ],
+            "Renewable Energy": [
+                "Renewable energy sources like solar and wind are now cost-competitive with fossil fuels, making the transition economically viable.",
+                "The intermittent nature of renewable energy requires significant energy storage solutions, which are still developing.",
+                "Transitioning to renewable energy will create millions of jobs in new industries while phasing out fossil fuel employment."
+            ]
+        };
+
+        // Generate AI debate response based on user level
+        async function generateDebateResponse(userMessage, topic, stance, history) {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const config = LEVEL_CONFIG[userLevel];
+            const historyText = history.map(entry => `${entry.sender}: ${entry.message}`).join('\n');
+            const gradeLevel = currentUser ? currentUser.grade : 'high';
+            
+            let difficultyPrompt = "";
+            let responseLength = "50-80 words";
+            
+            switch(config.aiDifficulty) {
+                case 'easy':
+                    difficultyPrompt = "Use simple language and basic arguments. Be encouraging and supportive.";
+                    responseLength = "30-50 words";
+                    break;
+                case 'medium':
+                    difficultyPrompt = "Use moderate complexity. Introduce some counterarguments and examples.";
+                    responseLength = "50-80 words";
+                    break;
+                case 'hard':
+                    difficultyPrompt = "Use complex arguments, multiple perspectives, and challenge assumptions.";
+                    responseLength = "80-120 words";
+                    break;
+                case 'expert':
+                    difficultyPrompt = "Use advanced rhetoric, sophisticated arguments, and deep analysis.";
+                    responseLength = "100-150 words";
+                    break;
+            }
+
+            const prompt = `You are an AI debate opponent at ${config.aiDifficulty} difficulty level. Topic: "${topic}". User argues ${stance === 'for' ? 'in favor' : 'against'}. User level: ${userLevel} (${config.title}). Grade: ${gradeLevel}.
+
+${difficultyPrompt}
+
+IMPORTANT: Always include evidence, statistics, studies, or expert opinions to support your arguments. Use phrases like:
+- "According to [study/organization]..."
+- "Research shows that..."
+- "Statistics indicate..."
+- "Experts argue that..."
+- "A study by [institution] found..."
+
+Previous conversation:
+${historyText}
+
+User's argument: ${userMessage}
+
+Provide a counter-argument with evidence (${responseLength}). Include at least one credible source or statistic. Be educational and respectful.`;
+
+            try {
+                const response = await callGeminiAPI(prompt);
+                if (response && response !== "I apologize, but I'm having trouble responding right now. Please try again.") {
+                    return response;
+                }
+            } catch (error) {
+                console.error('API call failed, using level-based mock response:', error);
+            }
+
+            // Level-based fallback responses with evidence
+            const levelResponses = {
+                1: [
+                    "That's a good point! However, according to recent surveys, 60% of people actually disagree with this view. What about their perspective?",
+                    "I see your idea. But studies show that there are often unintended consequences. For example, research indicates this approach can backfire.",
+                    "Interesting! But data from multiple countries suggests the opposite trend. Have you considered these international examples?"
+                ],
+                2: [
+                    "While your argument has merit, research by Stanford University shows potential negative consequences. How would you address these findings?",
+                    "That's valid, but according to WHO statistics, this affects vulnerable populations differently. What's your response to this data?",
+                    "Good reasoning! However, a 2023 study found contradictory evidence. Your argument would be stronger if you addressed these research findings."
+                ],
+                3: [
+                    "Your reasoning is logical, but you may be committing a correlation-causation fallacy. MIT research shows this relationship is more complex than it appears.",
+                    "That's thoughtful, but peer-reviewed studies indicate your conclusion lacks empirical support. What evidence backs your claim?",
+                    "I appreciate your perspective, but this seems like confirmation bias. Harvard researchers found that 73% of similar arguments ignore contradictory data."
+                ],
+                4: [
+                    "Your argument needs stronger evidence. A 2024 meta-analysis of 50 studies shows the opposite trend. How do you reconcile this with your position?",
+                    "While logical, the data contradicts your stance. According to Nature journal, recent findings show a 40% increase in opposing evidence.",
+                    "That's sophisticated, but you're overlooking key research. Oxford University's longitudinal study directly challenges this assumption."
+                ],
+                5: [
+                    "Your rhetoric is effective, but you're creating a false dichotomy. Economic research by Nobel laureates shows this issue has 7 distinct variables, not just two sides.",
+                    "While demonstrating advanced reasoning, you're missing systemic factors. The Brookings Institution's 2024 report identifies 12 interconnected policy implications you haven't addressed.",
+                    "Masterful persuasion, but your argument ignores philosophical foundations. Leading ethicists argue this position creates three major moral paradoxes that undermine your conclusion."
+                ]
+            };
+
+            const responses = levelResponses[userLevel] || levelResponses[1];
+            return responses[Math.floor(Math.random() * responses.length)];
+        }
+
+        // Generate feedback after debate
+        async function generateFeedback(debateHistory, topic, stance) {
+            const debateText = debateHistory.map(entry => 
+                `${entry.sender}: ${entry.message}`
+            ).join('\n');
+
+            const gradeLevel = currentUser ? currentUser.grade : 'high';
+
+            const prompt = `Analyze this debate and provide constructive feedback. The topic was "${topic}" and the user was arguing ${stance === 'for' ? 'in favor' : 'against'} it. User's grade level: ${gradeLevel}.
+
+Debate transcript:
+${debateText}
+
+Provide feedback in this exact format:
+STRENGTHS:
+- [Strength 1]
+- [Strength 2]
+- [Strength 3]
+
+WEAKNESSES:
+- [Weakness 1]
+- [Weakness 2]
+- [Weakness 3]
+
+SUGGESTIONS:
+[Your suggestions for improvement, 2-3 sentences]`;
+
+            const feedback = await callGeminiAPI(prompt);
+            return parseFeedback(feedback);
+        }
+
+        // Parse feedback into structured format with enhanced robustness
+        function parseFeedback(feedbackText) {
+            const strengths = [];
+            const weaknesses = [];
+            let suggestions = "";
+
+            // Use regex for more flexible section detection
+            const strengthsMatch = feedbackText.match(/STRENGTHS?:?\s*\n?(.*?)(?=WEAKNESSES?:?|SUGGESTIONS?:?|$)/is);
+            const weaknessesMatch = feedbackText.match(/WEAKNESSES?:?\s*\n?(.*?)(?=SUGGESTIONS?:?|$)/is);
+            const suggestionsMatch = feedbackText.match(/SUGGESTIONS?:?\s*\n?(.*)/is);
+
+            if (strengthsMatch) {
+                const strengthLines = strengthsMatch[1].split('\n').map(line => line.trim()).filter(line => line.startsWith('- ') || line.match(/^\d+\./));
+                strengthLines.forEach(line => {
+                    const cleanLine = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+                    if (cleanLine) strengths.push(cleanLine);
+                });
+            }
+
+            if (weaknessesMatch) {
+                const weaknessLines = weaknessesMatch[1].split('\n').map(line => line.trim()).filter(line => line.startsWith('- ') || line.match(/^\d+\./));
+                weaknessLines.forEach(line => {
+                    const cleanLine = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
+                    if (cleanLine) weaknesses.push(cleanLine);
+                });
+            }
+
+            if (suggestionsMatch) {
+                suggestions = suggestionsMatch[1].trim();
+            }
+
+            // Enhanced fallbacks with more variety
+            const defaultStrengths = [
+                "Good argument structure",
+                "Clear expression of ideas",
+                "Effective use of examples",
+                "Logical flow in reasoning",
+                "Engaging and persuasive tone"
+            ];
+            const defaultWeaknesses = [
+                "Could use more evidence",
+                "Address counterarguments more directly",
+                "Improve conclusion strength",
+                "Add specific examples",
+                "Strengthen transitions between points"
+            ];
+            const defaultSuggestions = [
+                "Practice constructing more detailed arguments with supporting evidence. Work on anticipating and addressing counterarguments more effectively.",
+                "Focus on building stronger evidence-based claims. Incorporate real-world examples to make your arguments more relatable.",
+                "Improve your rebuttal skills by directly responding to opponent's points. Practice varying sentence structure for better flow."
+            ];
+
+            return {
+                strengths: strengths.length > 0 ? strengths.slice(0, 3) : [defaultStrengths[Math.floor(Math.random() * defaultStrengths.length)]],
+                weaknesses: weaknesses.length > 0 ? weaknesses.slice(0, 3) : [defaultWeaknesses[Math.floor(Math.random() * defaultWeaknesses.length)]],
+                suggestions: suggestions.trim() || defaultSuggestions[Math.floor(Math.random() * defaultSuggestions.length)]
+            };
+        }
+
+        // Email validation
+        function validateEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function isValidEmailDomain(email) {
+            const validDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'edu'];
+            const domain = email.split('@')[1]?.toLowerCase();
+            return validDomains.some(validDomain => domain?.includes(validDomain));
+        }
+
+        // Mock email verification (in real app, send actual email)
+        function sendVerificationCode(email) {
+            const code = Math.floor(100000 + Math.random() * 900000);
+            localStorage.setItem('verificationCode', code);
+            localStorage.setItem('pendingEmail', email);
+            alert(`Verification code sent to ${email}: ${code}\n(In real app, this would be sent via email)`);
+            return code;
+        }
+
+        // Login functionality
+        loginBtn.addEventListener('click', () => {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim().toLowerCase();
+            const grade = document.getElementById('grade').value;
+            
+            if (!name || !email || !grade) {
+                alert('Please fill all fields.');
+                return;
+            }
+            
+            if (name.length < 2) {
+                alert('Name must be at least 2 characters long.');
+                return;
+            }
+            
+            if (!validateEmail(email)) {
+                alert('Please enter a valid email address.');
+                return;
+            }
+            
+            if (!isValidEmailDomain(email)) {
+                alert('Please use a valid email domain (Gmail, Yahoo, Outlook, or educational email).');
+                return;
+            }
+            
+            // Send verification code
+            sendVerificationCode(email);
+            
+            // Show verification prompt
+            const userCode = prompt('Enter the 6-digit verification code sent to your email:');
+            const storedCode = localStorage.getItem('verificationCode');
+            
+            if (userCode === storedCode) {
+                // Store user data
+                currentUser = {
+                    name: name,
+                    email: email,
+                    grade: grade,
+                    verified: true,
+                    level: 1,
+                    experience: 0
+                };
+                
+                localStorage.setItem('userName', name);
+                localStorage.setItem('userEmail', email);
+                localStorage.setItem('userGrade', grade);
+                localStorage.setItem('userLevel', '1');
+                localStorage.setItem('userExperience', '0');
+                localStorage.removeItem('verificationCode');
+                localStorage.removeItem('pendingEmail');
+                
+                // Update UI with user data
+                updateUserInterface();
+                
+                // Show dashboard
+                loginPage.style.display = 'none';
+                dashboard.style.display = 'block';
+                
+                playSound('achievement');
+            } else {
+                alert('Invalid verification code. Please try again.');
+                localStorage.removeItem('verificationCode');
+                localStorage.removeItem('pendingEmail');
+            }
+        });
+
+        // Logout functionality
+        logoutBtn.addEventListener('click', () => {
+            // Clear user data
+            currentUser = null;
+            localStorage.removeItem('userName');
+            localStorage.removeItem('userEmail');
+            localStorage.removeItem('userGrade');
+            
+            // Show login page
+            dashboard.style.display = 'none';
+            topicSelection.style.display = 'none';
+            debateInterface.style.display = 'none';
+            loginPage.style.display = 'flex';
+        });
+
+        // Update user interface based on level
+        function updateUserInterface() {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const userExp = parseInt(localStorage.getItem('userExperience') || '0');
+            const userName = localStorage.getItem('userName');
+            
+            if (userName) {
+                userNameElement.textContent = userName;
+                document.getElementById('topic-user-name').textContent = userName;
+                userAvatar.textContent = userName.split(' ').map(n => n[0]).join('').toUpperCase();
+                document.getElementById('topic-user-avatar').textContent = userName.split(' ').map(n => n[0]).join('').toUpperCase();
+            }
+            
+            // Update level display
+            document.getElementById('user-level').textContent = `Level ${userLevel} Debater • ${userExp} XP`;
+            
+            // Update avatar ring color based on level
+            const avatarRing = document.getElementById('avatar-ring');
+            avatarRing.className = 'avatar-ring';
+            if (userLevel <= 1) avatarRing.classList.add('bronze');
+            else if (userLevel <= 2) avatarRing.classList.add('silver');
+            else if (userLevel <= 3) avatarRing.classList.add('gold');
+            else if (userLevel <= 4) avatarRing.classList.add('platinum');
+            else avatarRing.classList.add('diamond');
+            
+            // Update XP progress bar
+            const currentLevelConfig = LEVEL_CONFIG[userLevel];
+            const nextLevelConfig = LEVEL_CONFIG[userLevel + 1];
+            
+            if (currentLevelConfig) {
+                const currentLevelExp = userExp - currentLevelConfig.requiredExp;
+                const expNeeded = (nextLevelConfig ? nextLevelConfig.requiredExp : currentLevelConfig.maxExp) - currentLevelConfig.requiredExp;
+                const progress = (currentLevelExp / expNeeded) * 100;
+                
+                document.getElementById('xp-progress-fill').style.width = Math.min(progress, 100) + '%';
+                document.getElementById('xp-progress-text').textContent = nextLevelConfig ? 
+                    `Level ${userLevel} → Level ${userLevel + 1}` : 'Max Level!';
+            }
+            
+            // Update level cards
+            levelCards.forEach((card, index) => {
+                const level = index + 1;
+                const config = LEVEL_CONFIG[level];
+                const statusElement = card.querySelector('.level-status');
+                
+                if (level <= userLevel) {
+                    card.classList.remove('locked');
+                    card.classList.add('unlocked');
+                    if (statusElement) statusElement.textContent = '✓';
+                } else {
+                    card.classList.add('locked');
+                    card.classList.remove('unlocked');
+                    if (statusElement) statusElement.textContent = '🔒';
+                }
+                
+                if (config) {
+                    card.querySelector('.level-title').textContent = config.title;
+                }
+            });
+            
+            // Update main progress bar
+            const mainProgressBar = document.querySelector('.progress-fill');
+            if (mainProgressBar && currentLevelConfig) {
+                const progress = ((userExp - currentLevelConfig.requiredExp) / (currentLevelConfig.maxExp - currentLevelConfig.requiredExp)) * 100;
+                mainProgressBar.style.width = Math.min(progress, 100) + '%';
+            }
+        }
+
+        // Start debate button
+        startDebateBtn.addEventListener('click', () => {
+            updateTopicSelection();
+            dashboard.style.display = 'none';
+            topicSelection.style.display = 'block';
+        });
+
+        // Update topic selection based on user level
+        function updateTopicSelection() {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const config = LEVEL_CONFIG[userLevel];
+            
+            if (config) {
+                // Clear existing topics
+                const topicContainer = document.querySelector('.topic-options');
+                topicContainer.innerHTML = '';
+                
+                // Add level-appropriate topics
+                config.topics.forEach(topic => {
+                    const topicDiv = document.createElement('div');
+                    topicDiv.className = 'topic-option';
+                    topicDiv.setAttribute('data-topic', topic);
+                    topicDiv.textContent = topic;
+                    topicDiv.addEventListener('click', () => {
+                        document.querySelectorAll('.topic-option').forEach(opt => opt.classList.remove('selected'));
+                        topicDiv.classList.add('selected');
+                        selectedTopic = topic;
+                        customTopicInput.value = "";
+                    });
+                    topicContainer.appendChild(topicDiv);
+                });
+                
+                // Update form title
+                document.querySelector('.topic-form h3').textContent = `Level ${userLevel}: ${config.title}`;
+                document.querySelector('.topic-form p').textContent = config.description;
+            }
+        }
+
+        // Back to dashboard from topic selection
+        backToDashboardFromTopic.addEventListener('click', () => {
+            topicSelection.style.display = 'none';
+            dashboard.style.display = 'block';
+        });
+
+        // Back to topic selection from debate
+        backToTopic.addEventListener('click', () => {
+            debateInterface.style.display = 'none';
+            topicSelection.style.display = 'block';
+            resetDebate();
+        });
+
+        // Topic selection
+        topicOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                // Deselect all options
+                topicOptions.forEach(opt => opt.classList.remove('selected'));
+                // Select clicked option
+                option.classList.add('selected');
+                selectedTopic = option.getAttribute('data-topic');
+                customTopicInput.value = "";
+            });
+        });
+
+        // Custom topic input
+        customTopicInput.addEventListener('input', () => {
+            if (customTopicInput.value.trim()) {
+                // Deselect all predefined options
+                topicOptions.forEach(opt => opt.classList.remove('selected'));
+                selectedTopic = customTopicInput.value.trim();
+            }
+        });
+
+        // Start debate with selected topic
+        startDebateWithTopicBtn.addEventListener('click', () => {
+            selectedStance = debateStanceSelect.value;
+            
+            if (!selectedTopic) {
+                alert('Please select or enter a debate topic.');
+                return;
+            }
+            
+            topicSelection.style.display = 'none';
+            debateInterface.style.display = 'block';
+            
+            // Initialize debate
+            initializeDebate();
+        });
+
+        // Experience and level management
+        function awardExperience(points) {
+            const currentExp = parseInt(localStorage.getItem('userExperience') || '0');
+            const currentLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const newExp = currentExp + points;
+            
+            localStorage.setItem('userExperience', newExp.toString());
+            
+            // Check for level up
+            const currentLevelConfig = LEVEL_CONFIG[currentLevel];
+            if (currentLevelConfig && newExp >= currentLevelConfig.maxExp && currentLevel < 5) {
+                const newLevel = currentLevel + 1;
+                localStorage.setItem('userLevel', newLevel.toString());
+                
+                // Show level up notification
+                setTimeout(() => {
+                    showBadgePopup('🎆', `Level ${newLevel} Unlocked!`, `${LEVEL_CONFIG[newLevel].title}`);
+                    playSound('achievement');
+                    updateUserInterface();
+                }, 1000);
+                
+                return true; // Level up occurred
+            }
+            
+            updateUserInterface();
+            return false; // No level up
+        }
+
+        // Initialize debate
+        function initializeDebate() {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const config = LEVEL_CONFIG[userLevel];
+            
+            // Clear previous debate
+            chatMessages.innerHTML = "";
+            debateHistory = [];
+            timeRemaining = config.timeLimit;
+            updateTimerDisplay();
+            
+            // Show tips chat box
+            document.getElementById('tips-chat').style.display = 'block';
+            
+            // Clear previous tips
+            tipsMessages.innerHTML = '<div class="tip-message"><strong>💡 Pro Tip:</strong> Start with a clear statement of your position!</div>';
+            
+            // Start timer
+            if (debateTimerInterval) {
+                clearInterval(debateTimerInterval);
+            }
+            
+            debateTimerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                
+                if (timeRemaining <= 0) {
+                    clearInterval(debateTimerInterval);
+                    endDebate();
+                }
+            }, 1000);
+            
+            // Add welcome message
+            const timeMinutes = Math.floor(config.timeLimit / 60);
+            const welcomeMessage = `Welcome to Level ${userLevel} debate! Topic: "${selectedTopic}". You're arguing ${selectedStance === 'for' ? 'in favor' : 'against'}. Time limit: ${timeMinutes} minutes. Present your opening argument!`;
+            addMessageToChat('AI Debater', welcomeMessage, 'ai-message');
+            
+            // Hide feedback section initially
+            feedbackSection.style.display = 'none';
+        }
+
+        // Send message functionality
+        sendMessageBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function sendMessage() {
+            if (isThinking) return;
+            
+            const message = messageInput.value.trim();
+            if (message) {
+                // Add user message to chat
+                addMessageToChat('You', message, 'user-message');
+                debateHistory.push({ sender: 'You', message: message });
+                messageInput.value = '';
+                playSound('message');
+                
+                // Show thinking indicator
+                isThinking = true;
+                const thinkingIndicator = addThinkingIndicator();
+                
+                try {
+                    // Generate AI response
+                    const aiResponse = await generateDebateResponse(
+                        message, 
+                        selectedTopic, 
+                        selectedStance, 
+                        debateHistory
+                    );
+                    
+                    // Remove thinking indicator
+                    thinkingIndicator.remove();
+                    
+                    // Add AI response to chat
+                    addMessageToChat('AI Debater', aiResponse, 'ai-message');
+                    debateHistory.push({ sender: 'AI Debater', message: aiResponse });
+                    
+                    // Add contextual tip
+                    addContextualTip();
+                    
+                    // Check achievements after each message
+                    checkRandomAchievements();
+                } catch (error) {
+                    // Remove thinking indicator
+                    thinkingIndicator.remove();
+                    
+                    // Add error message
+                    addMessageToChat('AI Debater', "I'm having trouble responding right now. Please try again.", 'ai-message');
+                    console.error('Error generating response:', error);
+                }
+                
+                isThinking = false;
+            }
+        }
+
+        function addThinkingIndicator() {
+            const thinkingDiv = document.createElement('div');
+            thinkingDiv.className = 'message ai-message thinking';
+            thinkingDiv.innerHTML = `
+                <div class="message-sender">AI Debater</div>
+                <div class="message-content">Thinking<span class="typing-dots"></span></div>
+            `;
+            chatMessages.appendChild(thinkingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return thinkingDiv;
+        }
+
+        function addMessageToChat(sender, content, className) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${className}`;
+            messageDiv.innerHTML = `
+                <div class="message-sender">${sender}</div>
+                <div class="message-content">${content}</div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+
+
+        // Update timer display with circular progress
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeRemaining / 60);
+            const seconds = timeRemaining % 60;
+            debateTimer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Update circular progress
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const totalTime = LEVEL_CONFIG[userLevel].timeLimit;
+            const progress = (timeRemaining / totalTime) * 220; // 220 is the circumference
+            
+            const timerProgress = document.getElementById('timer-progress');
+            if (timerProgress) {
+                timerProgress.style.strokeDashoffset = 220 - progress;
+            }
+            
+            // Add warning effects
+            const circularTimer = document.getElementById('circular-timer');
+            if (timeRemaining < 60) {
+                debateTimer.style.color = '#ff0080';
+                if (timerProgress) timerProgress.style.stroke = '#ff0080';
+                circularTimer.classList.add('timer-warning');
+            } else {
+                circularTimer.classList.remove('timer-warning');
+            }
+        }
+
+        // End debate and show feedback
+        async function endDebate() {
+            debateTimer.textContent = "Time's up!";
+            debateTimer.style.color = '#ff0080';
+            
+            // Play timer end sound
+            playEnhancedSound('timer-end');
+            
+            // Disable message input
+            messageInput.disabled = true;
+            sendMessageBtn.disabled = true;
+            
+            // Check for achievements
+            checkRandomAchievements();
+            
+            // Show feedback section
+            feedbackSection.style.display = 'block';
+            
+            // Generate feedback
+            const feedback = await generateFeedback(debateHistory, selectedTopic, selectedStance);
+            
+            // Display feedback
+            strengthsList.innerHTML = '';
+            weaknessesList.innerHTML = '';
+            
+            feedback.strengths.forEach(strength => {
+                const li = document.createElement('li');
+                li.textContent = strength;
+                strengthsList.appendChild(li);
+            });
+            
+            feedback.weaknesses.forEach(weakness => {
+                const li = document.createElement('li');
+                li.textContent = weakness;
+                weaknessesList.appendChild(li);
+            });
+            
+            suggestionsText.textContent = feedback.suggestions;
+        }
+
+        // Calculate experience points based on performance
+        function calculateExperiencePoints() {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const messageCount = debateHistory.filter(h => h.sender === 'You').length;
+            const timeUsed = LEVEL_CONFIG[userLevel].timeLimit - timeRemaining;
+            
+            let basePoints = 20; // Base points for completing debate
+            let bonusPoints = 0;
+            
+            // Message quality bonus
+            if (messageCount >= 3) bonusPoints += 10;
+            if (messageCount >= 5) bonusPoints += 10;
+            
+            // Time engagement bonus
+            if (timeUsed > 120) bonusPoints += 15; // Used more than 2 minutes
+            
+            // Level difficulty multiplier
+            const multiplier = userLevel * 0.5 + 0.5; // 1x for level 1, 1.5x for level 2, etc.
+            
+            return Math.floor((basePoints + bonusPoints) * multiplier);
+        }
+
+        // Finish debate button
+        finishDebateBtn.addEventListener('click', () => {
+            const expGained = calculateExperiencePoints();
+            const leveledUp = awardExperience(expGained);
+            
+            if (!leveledUp) {
+                alert(`🎆 Debate completed! You earned ${expGained} XP!`);
+            }
+            
+            updateUserStats();
+            updateStreak();
+            playSound('achievement');
+            debateInterface.style.display = 'none';
+            dashboard.style.display = 'block';
+            resetDebate();
+        });
+
+        // Reset debate state
+        function resetDebate() {
+            if (debateTimerInterval) {
+                clearInterval(debateTimerInterval);
+            }
+            
+            messageInput.disabled = false;
+            sendMessageBtn.disabled = false;
+            debateTimer.style.color = 'var(--primary)';
+            timeRemaining = 600;
+            updateTimerDisplay();
+            
+            // Hide tips chat box
+            document.getElementById('tips-chat').style.display = 'none';
+        }
+
+        // Progress tracking
+        function updateUserStats() {
+            const stats = JSON.parse(localStorage.getItem('userStats') || '{}');
+            stats.totalDebates = (stats.totalDebates || 0) + 1;
+            stats.totalMessages = (stats.totalMessages || 0) + debateHistory.filter(h => h.sender === 'You').length;
+            localStorage.setItem('userStats', JSON.stringify(stats));
+            
+            // Update UI
+            document.querySelector('.stat-value').textContent = stats.totalDebates || 12;
+        }
+
+        // Level card click functionality
+        levelCards.forEach((card, index) => {
+            card.addEventListener('click', () => {
+                const clickedLevel = index + 1;
+                const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+                
+                if (clickedLevel <= userLevel) {
+                    // Set current level and start debate
+                    localStorage.setItem('selectedLevel', clickedLevel.toString());
+                    updateTopicSelection();
+                    dashboard.style.display = 'none';
+                    topicSelection.style.display = 'block';
+                } else {
+                    const requiredExp = LEVEL_CONFIG[clickedLevel].requiredExp;
+                    const currentExp = parseInt(localStorage.getItem('userExperience') || '0');
+                    const neededExp = requiredExp - currentExp;
+                    alert(`🔒 Level ${clickedLevel} is locked! You need ${neededExp} more XP to unlock it.`);
+                }
+            });
+        });
+
+        // Tips Chat Box Functionality
+        toggleTipsBtn.addEventListener('click', () => {
+            tipsContent.classList.toggle('collapsed');
+            toggleTipsBtn.textContent = tipsContent.classList.contains('collapsed') ? '+' : '−';
+        });
+
+        // Generate tips using Gemini API
+        async function generateTip(question) {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const levelConfig = LEVEL_CONFIG[userLevel];
+            
+            const prompt = `You are a debate coach helping a Level ${userLevel} student (${levelConfig.title}). 
+User question: "${question}"
+
+Provide a concise, practical debate tip in 1-2 sentences. Focus on ${levelConfig.description.toLowerCase()}. Be encouraging and specific.`;
+            
+            try {
+                const response = await callGeminiAPI(prompt);
+                return response || getRandomTip(userLevel);
+            } catch (error) {
+                return getRandomTip(userLevel);
+            }
+        }
+
+        // Fallback tips by level
+        function getRandomTip(level) {
+            const tips = {
+                1: [
+                    "Start with 'I believe...' to clearly state your position.",
+                    "Use simple examples that everyone can understand.",
+                    "Listen carefully to your opponent's points before responding."
+                ],
+                2: [
+                    "When countering, say 'However, consider this...' to introduce your rebuttal.",
+                    "Address the strongest part of your opponent's argument first.",
+                    "Use phrases like 'On the contrary...' to signal disagreement."
+                ],
+                3: [
+                    "Watch for logical fallacies like 'everyone does it' or 'slippery slope'.",
+                    "Ask 'What evidence supports that claim?' to challenge weak arguments.",
+                    "Avoid making assumptions without proof."
+                ],
+                4: [
+                    "Always cite your sources: 'According to [study/expert]...'",
+                    "Use statistics and data to strengthen your position.",
+                    "Compare multiple studies to show consistency."
+                ],
+                5: [
+                    "Use rhetorical questions to make your audience think.",
+                    "Structure arguments with: Claim → Evidence → Reasoning → Impact.",
+                    "Address potential counterarguments before your opponent raises them."
+                ]
+            };
+            
+            const levelTips = tips[level] || tips[1];
+            return levelTips[Math.floor(Math.random() * levelTips.length)];
+        }
+
+        // Send tip question
+        sendTipQuestionBtn.addEventListener('click', async () => {
+            const question = tipsInput.value.trim();
+            if (question) {
+                // Add user question
+                const userTipDiv = document.createElement('div');
+                userTipDiv.className = 'tip-message user';
+                userTipDiv.innerHTML = `<strong>You:</strong> ${question}`;
+                tipsMessages.appendChild(userTipDiv);
+                
+                tipsInput.value = '';
+                
+                // Generate and add tip response
+                const tip = await generateTip(question);
+                const tipDiv = document.createElement('div');
+                tipDiv.className = 'tip-message';
+                tipDiv.innerHTML = `<strong>💡 Coach:</strong> ${tip}`;
+                tipsMessages.appendChild(tipDiv);
+                
+                // Scroll to bottom
+                tipsMessages.scrollTop = tipsMessages.scrollHeight;
+                
+                playSound('message');
+            }
+        });
+
+        // Enter key for tips
+        tipsInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendTipQuestionBtn.click();
+            }
+        });
+
+        // Auto-generate contextual tips during debate
+        function addContextualTip() {
+            const userLevel = parseInt(localStorage.getItem('userLevel') || '1');
+            const messageCount = debateHistory.filter(h => h.sender === 'You').length;
+            
+            let tip = "";
+            
+            if (messageCount === 1) {
+                tip = "Great start! Now try to anticipate what your opponent might say next.";
+            } else if (messageCount === 3) {
+                tip = "Remember to support your arguments with examples or evidence.";
+            } else if (messageCount === 5) {
+                tip = "Consider addressing your opponent's strongest point directly.";
+            }
+            
+            if (tip) {
+                setTimeout(() => {
+                    const tipDiv = document.createElement('div');
+                    tipDiv.className = 'tip-message';
+                    tipDiv.innerHTML = `<strong>💡 Auto-Tip:</strong> ${tip}`;
+                    tipsMessages.appendChild(tipDiv);
+                    tipsMessages.scrollTop = tipsMessages.scrollHeight;
+                }, 2000);
+            }
+        }
+
+        // Badge unlock popup functions
+        function showBadgePopup(icon, title, description) {
+            document.getElementById('badge-popup-icon').textContent = icon;
+            document.getElementById('badge-popup-text').textContent = description;
+            document.querySelector('#badge-popup h3').textContent = title;
+            document.getElementById('badge-popup').style.display = 'flex';
+        }
+
+        function closeBadgePopup() {
+            document.getElementById('badge-popup').style.display = 'none';
+        }
+
+        // Enhanced sound effects
+        function playEnhancedSound(type) {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            if (type === 'timer-end') {
+                // Timer end beep sequence
+                [800, 1000, 1200].forEach((freq, i) => {
+                    setTimeout(() => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.value = freq;
+                        oscillator.type = 'sine';
+                        
+                        gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                        
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                    }, i * 150);
+                });
+            }
+        }
+
+        // Random achievement check
+        function checkRandomAchievements() {
+            const messageCount = debateHistory.filter(h => h.sender === 'You').length;
+            const stats = JSON.parse(localStorage.getItem('userStats') || '{}');
+            
+            // First debate achievement
+            if (stats.totalDebates === 1 && !localStorage.getItem('firstDebateBadge')) {
+                localStorage.setItem('firstDebateBadge', 'true');
+                setTimeout(() => showBadgePopup('🎯', 'First Steps!', 'Completed your first debate'), 2000);
+            }
+            
+            // Message milestone
+            if (messageCount === 5 && !sessionStorage.getItem('activeDebaterBadge')) {
+                sessionStorage.setItem('activeDebaterBadge', 'true');
+                setTimeout(() => showBadgePopup('💬', 'Active Debater!', 'Sent 5 messages in one debate'), 1000);
+            }
+        }
+
+        // Theme Toggle Functionality
+        themeToggle.addEventListener('click', () => {
+            document.body.classList.toggle('light-mode');
+            const isLight = document.body.classList.contains('light-mode');
+            
+            // Update icon
+            const icon = themeToggle.querySelector('.theme-icon');
+            icon.textContent = isLight ? '☀️' : '🌙';
+            
+            // Save preference
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            
+            playSound('message');
+        });
+
+        // Daily Challenge System
+        function initializeDailyChallenge() {
+            const today = new Date().toDateString();
+            const lastChallenge = localStorage.getItem('lastChallengeDate');
+            
+            if (lastChallenge !== today) {
+                // New day, reset challenge
+                const challenges = [
+                    'Win 2 debates with evidence-based arguments',
+                    'Complete 3 debates without losing',
+                    'Use 5 different sources in debates',
+                    'Debate for 15 minutes total today',
+                    'Win debates on 2 different topics'
+                ];
+                
+                const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+                localStorage.setItem('dailyChallenge', randomChallenge);
+                localStorage.setItem('challengeProgress', '0');
+                localStorage.setItem('lastChallengeDate', today);
+            }
+        }
+
+        // Streak Tracking
+        function updateStreak() {
+            const today = new Date().toDateString();
+            const lastDebateDate = localStorage.getItem('lastDebateDate');
+            const currentStreak = parseInt(localStorage.getItem('debateStreak') || '0');
+            
+            if (lastDebateDate !== today) {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                
+                if (lastDebateDate === yesterday.toDateString()) {
+                    // Consecutive day
+                    localStorage.setItem('debateStreak', (currentStreak + 1).toString());
+                } else if (lastDebateDate !== today) {
+                    // Streak broken
+                    localStorage.setItem('debateStreak', '1');
+                }
+                
+                localStorage.setItem('lastDebateDate', today);
+                
+                // Update UI
+                const streakNumber = document.querySelector('.streak-number');
+                if (streakNumber) {
+                    streakNumber.textContent = localStorage.getItem('debateStreak') || '1';
+                }
+            }
+        }
+
+
+
+        // Check if user is already logged in
+        window.addEventListener('load', () => {
+            // Load theme preference
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+                const icon = themeToggle.querySelector('.theme-icon');
+                icon.textContent = '☀️';
+            }
+            
+            const userName = localStorage.getItem('userName');
+            if (userName) {
+                // User is logged in, show dashboard
+                currentUser = {
+                    name: userName,
+                    email: localStorage.getItem('userEmail'),
+                    grade: localStorage.getItem('userGrade'),
+                    level: parseInt(localStorage.getItem('userLevel') || '1'),
+                    experience: parseInt(localStorage.getItem('userExperience') || '0')
+                };
+                
+                loginPage.style.display = 'none';
+                dashboard.style.display = 'block';
+                
+                // Initialize features
+                initializeDailyChallenge();
+                
+                // Update UI with user data
+                updateUserInterface();
+            }
+        });
+    </script>
+</body>
+</html>
